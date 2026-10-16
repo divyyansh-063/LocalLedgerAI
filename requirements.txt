@@ -1,0 +1,5 @@
+Flask
+ollama
+pydantic
+python-dotenv
+pypdf

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalLedger AI — Private Expense Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <aside class="sidebar">
+        <a class="brand" href="/">
+            <span class="brand-icon">L</span>
+            <span>LocalLedger<span class="brand-ai"> AI</span></span>
+        </a>
+
+        <p class="nav-label">WORKSPACE</p>
+        <a class="nav-link active" href="/">▦ &nbsp; Overview</a>
+        <a class="nav-link" href="#expenses">▤ &nbsp; Transactions</a>
+        <a class="nav-link" href="{{ url_for('export_csv') }}">⇩ &nbsp; Export CSV</a>
+
+        <div class="sidebar-bottom">
+            <div class="privacy-icon">◈</div>
+            <strong>Your data stays local</strong>
+            <p>Receipts are processed using your local AI model.</p>
+            <span class="local-status"><i></i> LOCAL MODE</span>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">PERSONAL FINANCE WORKSPACE</p>
+                <h1>Expense overview</h1>
+            </div>
+            <span class="model-badge"><i></i> {{ model }}</span>
+        </header>
+
+        <section class="welcome">
+            <div>
+                <p class="eyebrow light">YOUR FINANCES, SIMPLIFIED</p>
+                <h2>Every receipt. One clear picture.</h2>
+                <p>Turn receipts into organized expense records with AI that runs locally.</p>
+            </div>
+            <div class="welcome-art" aria-hidden="true">
+                <div class="art-circle"></div>
+                <div class="receipt-art">
+                    <span>LOCAL LEDGER</span>
+                    <div class="art-line"></div>
+                    <div class="art-line short"></div>
+                    <div class="art-line"></div>
+                    <strong>₹ 1,250.00</strong>
+                    <div class="art-line short"></div>
+                </div>
+            </div>
+        </section>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="messages">
+            {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <section class="stats-grid">
+            <article class="stat-card">
+                <div class="stat-top">
+                    <span>Total recorded spending</span>
+                    <span class="stat-icon purple">₹</span>
+                </div>
+                <h2>₹{{ "%.2f"|format(total_spent) }}</h2>
+                <p>INR transactions only</p>
+            </article>
+
+            <article class="stat-card">
+                <div class="stat-top">
+                    <span>Receipts processed</span>
+                    <span class="stat-icon blue">▤</span>
+                </div>
+                <h2>{{ expense_count }}</h2>
+                <p>Saved expense records</p>
+            </article>
+
+            <article class="stat-card">
+                <div class="stat-top">
+                    <span>AI processing</span>
+                    <span class="stat-icon green">✳</span>
+                </div>
+                <h2 class="local-heading">On-device</h2>
+                <p>Powered by your Ollama model</p>
+            </article>
+        </section>
+        <!-- DASHBOARD ANALYTICS -->
+        <section class="analytics-section" id="analytics">
+
+            <div class="section-heading analytics-title">
+                <div>
+                    <p class="eyebrow">YOUR MONEY, AT A GLANCE</p>
+                    <h2>Spending analytics</h2>
+                </div>
+                <span class="analytics-label">INR only</span>
+            </div>
+
+            <!-- Extra summary cards -->
+            <div class="analytics-summary">
+
+                <article class="analytics-card">
+                    <span class="analytics-card-label">This month's spending</span>
+                    <h3>₹{{ "%.2f"|format(current_month_spent) }}</h3>
+                    <p>Based on transaction dates</p>
+                </article>
+
+                <article class="analytics-card">
+                    <span class="analytics-card-label">Average expense</span>
+                    <h3>₹{{ "%.2f"|format(average_expense) }}</h3>
+                    <p>Per saved INR transaction</p>
+                </article>
+
+            </div>
+
+            <div class="analytics-grid">
+
+                <!-- Category breakdown -->
+                <article class="panel analytics-panel">
+                    <div class="section-heading">
+                        <div>
+                            <p class="eyebrow">WHERE IT GOES</p>
+                            <h2>Spending by category</h2>
+                        </div>
+                    </div>
+
+                    {% if category_analytics %}
+                    <div class="category-list">
+                        {% for item in category_analytics %}
+                        <div class="category-item">
+
+                            <div class="category-meta">
+                                <strong>{{ item.category }}</strong>
+                                <span>₹{{ "%.2f"|format(item.total) }}</span>
+                            </div>
+
+                            <div class="progress-track" role="progressbar" aria-label="{{ item.category }} spending"
+                                aria-valuenow="{{ item.percentage }}" aria-valuemin="0" aria-valuemax="100">
+                                <div class="progress-fill" style="width: {{ item.percentage }}%;"></div>
+                            </div>
+
+                            <p class="category-percentage">
+                                {{ item.percentage }}% of recorded INR spending
+                            </p>
+
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="analytics-empty">
+                        <span>▤</span>
+                        <h3>No category data yet</h3>
+                        <p>Upload and save a receipt to see your spending breakdown.</p>
+                    </div>
+                    {% endif %}
+                </article>
+
+                <!-- Monthly spending chart -->
+                <article class="panel analytics-panel">
+                    <div class="section-heading">
+                        <div>
+                            <p class="eyebrow">YOUR SPENDING TREND</p>
+                            <h2>Monthly spending</h2>
+                        </div>
+                    </div>
+
+                    {% if expense_count > 0 %}
+                    <div class="monthly-chart">
+
+                        {% for item in monthly_analytics %}
+                        <div class="month-column">
+
+                            <div class="month-bar-area">
+                                {% if max_monthly_spending > 0 %}
+                                {% set bar_height = (item.total / max_monthly_spending * 100) %}
+                                {% else %}
+                                {% set bar_height = 0 %}
+                                {% endif %}
+
+                                <div class="month-bar {% if item.total > 0 %}has-value{% endif %}"
+                                    style="height: {{ [bar_height, 4]|max }}%;"
+                                    title="{{ item.month }}: ₹{{ '%.2f'|format(item.total) }}"></div>
+                            </div>
+
+                            <strong class="month-amount">
+                                ₹{{ "%.0f"|format(item.total) }}
+                            </strong>
+
+                            <span class="month-label">{{ item.month }}</span>
+
+                        </div>
+                        {% endfor %}
+
+                    </div>
+
+                    <p class="chart-note">
+                        Monthly totals are calculated using transaction dates.
+                        Months without recorded spending show ₹0.
+                    </p>
+                    {% else %}
+                    <div class="analytics-empty">
+                        <span>▥</span>
+                        <h3>Your trend starts here</h3>
+                        <p>Save expenses to start building your monthly spending history.</p>
+                    </div>
+                    {% endif %}
+                </article>
+
+            </div>
+        </section>
+        <section class="workspace-grid">
+            <article class="panel upload-panel">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">QUICK ACTION</p>
+                        <h2>Scan a receipt</h2>
+                    </div>
+                    <span class="upload-symbol">↑</span>
+                </div>
+
+                <form action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data" id="upload-form">
+                    <label class="drop-zone" for="receipt">
+                        <span class="upload-cloud">↑</span>
+                        <strong id="file-label">Choose a receipt to upload</strong>
+                        <span id="file-hint">PNG, JPG, WEBP or text-based PDF</span>
+                        <span class="browse-button">Browse files</span>
+                    </label>
+                    <input id="receipt" name="receipt" type="file" accept=".png,.jpg,.jpeg,.webp,.pdf" required>
+                    <button class="primary-button" type="submit" id="submit-button">
+                        <span>✳</span> Extract expense with AI
+                    </button>
+                </form>
+
+                <div class="privacy-note">
+                    <span>◈</span>
+                    <p>Your uploaded original is removed after processing. Extracted
+                        fields are saved locally for your records.</p>
+                </div>
+            </article>
+
+            <article class="panel how-panel">
+                <p class="eyebrow">HOW IT WORKS</p>
+                <h2>From paper to insights</h2>
+                <div class="step">
+                    <span class="step-number">01</span>
+                    <div>
+                        <strong>Upload</strong>
+                        <p>Select a receipt image or a text-based PDF.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <span class="step-number">02</span>
+                    <div>
+                        <strong>Extract</strong>
+                        <p>Your local AI identifies merchant, date, tax and total.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <span class="step-number">03</span>
+                    <div>
+                        <strong>Organize</strong>
+                        <p>Review saved records and export them to CSV.</p>
+                    </div>
+                </div>
+                <div class="local-callout">
+                    <span>✓</span>
+                    <p><strong>No AI API key required.</strong><br>
+                        Processing uses your local Ollama installation.</p>
+                </div>
+            </article>
+        </section>
+
+        <section class="panel transactions-panel" id="expenses">
+            <div class="section-heading transactions-heading">
+                <div>
+                    <p class="eyebrow">YOUR RECORDS</p>
+                    <h2>Recent transactions</h2>
+                </div>
+                <a class="secondary-button" href="{{ url_for('export_csv') }}">
+                    ↓ Export CSV
+                </a>
+            </div>
+
+            {% if expenses %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>MERCHANT</th>
+                            <th>DATE</th>
+                            <th>CATEGORY</th>
+                            <th>TAX</th>
+                            <th class="amount-cell">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for expense in expenses %}
+                        <tr>
+                            <td>
+                                <div class="merchant-cell">
+                                    <span class="merchant-avatar">
+                                        {{ expense["vendor"][0]|upper if expense["vendor"] else "?" }}
+                                    </span>
+                                    <div>
+                                        <strong>{{ expense["vendor"] }}</strong>
+                                        <small>{{ expense["source_file"] }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ expense["date"] or "—" }}</td>
+                            <td><span class="category-pill">{{ expense["category"] }}</span></td>
+                            <td>
+                                {% if expense["tax"] is not none %}
+                                {{ expense["currency"] }} {{ "%.2f"|format(expense["tax"]) }}
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+                            <td class="amount-cell">
+                                {% if expense["total"] is not none %}
+                                <strong>{{ expense["currency"] }} {{ "%.2f"|format(expense["total"]) }}</strong>
+                                {% else %}
+                                <strong>—</strong>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <span class="empty-icon">▤</span>
+                <h3>No transactions yet</h3>
+                <p>Upload your first receipt and let LocalLedger AI organize the details.</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <footer>
+            <span>LocalLedger AI</span>
+            <span>Private by design · Powered by local AI</span>
+        </footer>
+    </main>
+
+    <script>
+        const fileInput = document.getElementById("receipt");
+        const fileLabel = document.getElementById("file-label");
+        const fileHint = document.getElementById("file-hint");
+        const uploadForm = document.getElementById("upload-form");
+        const submitButton = document.getElementById("submit-button");
+
+        fileInput.addEventListener("change", () => {
+            if (fileInput.files.length) {
+                fileLabel.textContent = fileInput.files[0].name;
+                fileHint.textContent = "Ready to process";
+            }
+        });
+
+        uploadForm.addEventListener("submit", () => {
+            submitButton.disabled = true;
+            submitButton.textContent = "Processing receipt…";
+        });
+    </script>
+</body>
+
+</html>
